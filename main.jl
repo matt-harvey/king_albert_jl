@@ -41,6 +41,8 @@ end
 
 Base.instances(Rank) = map(Rank, rankmin:rankmax)
 
+is_successor_of(rank::Rank, other::Rank) = (rank.value == other.value + 1)
+
 struct Card
     rank::Rank
     suit::Suit
@@ -107,16 +109,16 @@ mutable struct FoundationPosition
     FoundationPosition(suit::Suit) = new(suit, nothing)
 end
 
-cangive(position::FoundationPosition) = false
+can_give(position::FoundationPosition) = false
 
-function canreceive(position::FoundationPosition, card::Card)
+function can_receive(position::FoundationPosition, card::Card)
     if card.suit != position.suit
         return false
     end
     if isnothing(position.rank)
         return card.rank.value == 1
     end
-    return card.rank.value == position.rank.value + 1
+    return is_successor(card.rank, position.rank)
 end
 
 function receive!(position::FoundationPosition, card::Card)
@@ -139,18 +141,18 @@ mutable struct ColumnPosition
     cards::Vector{Card}
 end
 
-function topcard(columnPosition::ColumnPosition)
+function next_card(columnPosition::ColumnPosition)
     if isempty(columnPosition.cards)
         return nothing
     end
     return last(columnPosition.cards)
 end
 
-cangive(position::ColumnPosition) = !isempty(position.cards)
+can_give(position::ColumnPosition) = !isempty(position.cards)
 
-function canreceive(position::ColumnPosition, card::Card)
-    top = topcard(position)
-    isnothing(top) || (color(top) != color(card))
+function can_receive(position::ColumnPosition, card::Card)
+    top = next_card(position)
+    isnothing(top) || (color(top) != color(card) && is_successor_of(top.rank, card.rank))
 end
 
 function give!(position::ColumnPosition)
@@ -168,9 +170,9 @@ mutable struct HandPosition
     card::Union{Card, Nothing}
 end
 
-cangive(position::HandPosition) = !isnothing(position.card)
+can_give(position::HandPosition) = !isnothing(position.card)
 
-canreceive(position::HandPosition, card::Card) = false
+can_receive(position::HandPosition, card::Card) = false
 
 function give!(position::HandPosition)
     card = position.card
@@ -185,6 +187,8 @@ function Base.show(io::IO, position::HandPosition)
         print(io, string(position.card))
     end
 end
+
+next_card(position::HandPosition) = position.card
 
 mutable struct Game
     foundations::Vector{FoundationPosition}
@@ -329,16 +333,15 @@ function play(game::Game)
             println("Invalid TO character")
             continue
         end
-        if !cangive(from)
+        if !can_give(from)
             println("You cannot play a card from there.")
             continue
         end
-        card = give!(from)
-        if !canreceive(to, card)
+        if !can_receive(to, next_card(from))
             println("You cannot move that card there.")
             continue
         end
-        receive!(to, card)
+        receive!(to, give!(from))
         show(game)
     end
 
