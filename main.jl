@@ -118,7 +118,7 @@ function can_receive(position::FoundationPosition, card::Card)
     if isnothing(position.rank)
         return card.rank.value == 1
     end
-    return is_successor(card.rank, position.rank)
+    return is_successor_of(card.rank, position.rank)
 end
 
 function receive!(position::FoundationPosition, card::Card)
